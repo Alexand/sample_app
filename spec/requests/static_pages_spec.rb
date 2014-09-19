@@ -16,6 +16,7 @@ describe "Static pages" do
 
     it_should_behave_like "all static pages"
     it { should_not have_title('| Home') }
+    it { should have_link 'Sign in', href: signin_path }
   end
 
   describe "Help page" do
