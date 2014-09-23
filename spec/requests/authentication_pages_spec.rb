@@ -28,12 +28,14 @@ describe "Authentication" do
 
 	  describe "with valid information" do
 	  	let(:user) { FactoryGirl.create(:user) }
-	  	before { valid_signin user }
+	  	before { sign_in user }
 
 	  	it { should have_title(user.name) }
-	  	it { should have_link('Profile',			href: user_path(user))}
-	  	it { should have_link('Sign out',			href: signout_path)}
-	  	it { should_not have_link('Sign in',	href: signin_path)}
+	  	it { should have_link 'Users',        href: users_path }
+	  	it { should have_link 'Profile',			href: user_path(user) }
+	  	it { should have_link 'Settings',			href: edit_user_path(user) }
+	  	it { should have_link 'Sign out',			href: signout_path }
+	  	it { should_not have_link 'Sign in',	href: signin_path }
 
 	  	describe "followed by signout" do
 	  		before { click_link "Sign out" }
@@ -41,5 +43,70 @@ describe "Authentication" do
 	  		it { should have_link('Sign in',	href: signin_path) }
 	  	end
 	  end
+  end
+
+  describe "authorization" do
+  	describe "for non-signed-in users" do
+  		let(:user) { FactoryGirl.create(:user) }
+
+  		describe "when attempting to visit a protected page" do
+  			before do
+  				visit edit_user_path user
+  				fill_in "Email", 		with: user.email
+  				fill_in "Password",	with: user.password
+  				click_button 'Sign in'
+  			end
+
+  			describe "after signing in" do
+  				it "should render the desired protected page" do
+  					expect(page).to have_title 'Edit User'
+  				end
+  			end
+  		end
+
+  		describe "visiting the user index" do
+  			before { visit users_path }
+  			it { should have_title 'Sign in' }
+  		end
+
+			describe "visiting the edit page" do
+				before { visit edit_user_path user }
+				it { should have_title 'Sign in' }
+			end
+
+			describe "submmitting the update action" do
+				before { patch user_path user }
+				specify { expect(response).to redirect_to signin_path}
+			end	
+  	end
+
+  	describe "as wrong user" do
+  		let(:correctUser) { FactoryGirl.create(:user) }
+  		let(:wrongUser) { FactoryGirl.create(:user, email:"wrong@example.com") }
+			before { sign_in correctUser, no_capybara: true }
+
+			describe "submmitting GET request to the Users#edit action" do
+				before { get edit_user_path wrongUser }
+				specify { expect(response.body).not_to match(full_title('Edit user')) }
+				specify { expect(response).to redirect_to root_url }
+			end
+
+			describe "submmitting a PATCH request to the Users#update action" do
+				before { patch user_path wrongUser}
+				specify { expect(response).to redirect_to root_url }
+			end
+		end
+
+		describe "as non-admin user" do
+			let(:user) { FactoryGirl.create(:user) }
+			let(:non_admin) { FactoryGirl.create(:user) }
+
+			before { sign_in non_admin, no_capybara: true }
+
+			describe "submmitting a DELETE request to the Users#destroy action" do
+				before { delete user_path(user) }
+				specify { expect(response).to redirect_to(root_url) }
+			end
+		end
   end
 end
