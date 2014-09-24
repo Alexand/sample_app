@@ -37,6 +37,26 @@ describe "Authentication" do
 	  	it { should have_link 'Sign out',			href: signout_path }
 	  	it { should_not have_link 'Sign in',	href: signin_path }
 
+	  	describe "followed by tring to access Users#new action" do
+	  		before { 
+  				sign_in user, no_capybara: true
+	  			get new_user_path 
+	  		}
+        specify { expect(response).to redirect_to(root_url) }
+			end
+
+			describe "followed by tring to access Users#create action" do
+	  		let(:params) do
+        { user: { admin: true, password: user.password,
+                  password_confirmation: user.password } }
+        end
+	  		before { 
+  				sign_in user, no_capybara: true
+	  			post "users" , params
+	  		}
+        specify { expect(response).to redirect_to(root_url) }
+			end			
+
 	  	describe "followed by signout" do
 	  		before { click_link "Sign out" }
 
@@ -49,18 +69,35 @@ describe "Authentication" do
   	describe "for non-signed-in users" do
   		let(:user) { FactoryGirl.create(:user) }
 
+  		describe "before signing in" do
+  			before { visit root_url }
+
+	  		it { should_not have_link 'Profile' }
+	  		it { should_not have_link 'Settings' }
+	  	end
+
   		describe "when attempting to visit a protected page" do
   			before do
   				visit edit_user_path user
-  				fill_in "Email", 		with: user.email
-  				fill_in "Password",	with: user.password
-  				click_button 'Sign in'
+  				sign_in user
   			end
 
   			describe "after signing in" do
   				it "should render the desired protected page" do
   					expect(page).to have_title 'Edit User'
   				end
+
+  				describe "when signing in again" do
+            before do
+              click_link "Sign out"
+              visit signin_path
+							sign_in user
+            end
+
+            it "should render the default (profile) page" do
+              expect(page).to have_title(user.name)
+            end
+          end
   			end
   		end
 
@@ -108,5 +145,16 @@ describe "Authentication" do
 				specify { expect(response).to redirect_to(root_url) }
 			end
 		end
+
+		describe "as admin user" do
+	    let(:admin) { FactoryGirl.create(:admin) }
+	    before { sign_in admin, no_capybara: true }
+
+	    describe "should not be able to delete themselves via #destroy action" do
+	      specify do
+	        expect { delete user_path(admin) }.not_to change(User, :count).by(-1)
+	      end
+	    end
+	  end
   end
 end
